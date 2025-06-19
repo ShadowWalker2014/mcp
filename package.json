@@ -1,0 +1,32 @@
+{
+  "name": "mcp-servers",
+  "version": "1.0.0",
+  "description": "Collection of Model Context Protocol servers",
+  "type": "module",
+  "bin": {
+    "mcp-stripe": "stripe/dist/index.js"
+  },
+  "scripts": {
+    "stripe": "node stripe/dist/index.js",
+    "build": "cd stripe && npm run build",
+    "install-deps": "cd stripe && npm install"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "stripe",
+    "ai",
+    "claude",
+    "cursor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShadowWalker2014/mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ShadowWalker2014/mcp/issues"
+  },
+  "homepage": "https://github.com/ShadowWalker2014/mcp#readme",
+  "author": "ShadowWalker2014",
+  "license": "MIT"
+} 
