@@ -112,7 +112,7 @@ Add to your Claude Desktop config file:
   "mcpServers": {
     "stripe": {
       "command": "node",
-      "args": ["/path/to/mcp/stripe/dist/index.js"],
+      "args": ["https://github.com/ShadowWalker2014/mcp/blob/main/stripe/dist/index.js"],
       "env": {
         "STRIPE_SECRET_KEY": "sk_test_your_key_here"
       }
