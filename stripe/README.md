@@ -11,6 +11,24 @@ A Model Context Protocol (MCP) server that provides comprehensive Stripe integra
 - **Advanced Querying**: Query various Stripe resources (events, charges, payment intents, customers, subscriptions, invoices, products, prices) with flexible filtering
 - **Connection Helper**: Assist with Stripe setup and configuration
 
+## Command Line Arguments
+
+The server supports the following command line arguments:
+
+- `--api-key=<key>` or `--api-key <key>` - Your Stripe secret key (required)
+- `--publishable-key=<key>` - Your Stripe publishable key (optional)
+- `--webhook-secret=<secret>` - Your webhook endpoint secret (optional)
+- `--tools=<selection>` - Tool selection (currently supports 'all', future: 'basic', 'advanced')
+
+**Examples:**
+```bash
+# Using command line arguments
+npx github:ShadowWalker2014/mcp mcp-stripe --api-key=sk_test_your_key
+
+# Multiple arguments
+npx github:ShadowWalker2014/mcp mcp-stripe --api-key=sk_test_key --webhook-secret=whsec_secret
+```
+
 ## Available Tools
 
 ### 1. `stripe_connect`
@@ -104,15 +122,34 @@ npm run watch
 
 The server communicates over stdio, making it compatible with various MCP clients. Here are example configurations:
 
-#### Claude Desktop Configuration
-Add to your Claude Desktop config file:
+#### Method 1: Using Command Arguments (Recommended)
+Similar to official Stripe and Supabase MCP servers:
 
 ```json
 {
   "mcpServers": {
     "stripe": {
       "command": "npx",
-      "args": ["-y", "github:ShadowWalker2014/mcp", "stripe/dist/index.js"],
+      "args": [
+        "-y",
+        "github:ShadowWalker2014/mcp",
+        "mcp-stripe",
+        "--api-key=sk_test_your_stripe_key_here"
+      ]
+    }
+  }
+}
+```
+
+#### Method 2: Using Environment Variables
+Traditional approach with environment variables:
+
+```json
+{
+  "mcpServers": {
+    "stripe": {
+      "command": "npx",
+      "args": ["-y", "github:ShadowWalker2014/mcp", "mcp-stripe"],
       "env": {
         "STRIPE_SECRET_KEY": "sk_test_your_key_here"
       }
@@ -121,7 +158,7 @@ Add to your Claude Desktop config file:
 }
 ```
 
-#### Alternative: Direct GitHub Installation
+#### Method 3: Direct File Execution
 If you want to use a specific commit or branch:
 
 ```json

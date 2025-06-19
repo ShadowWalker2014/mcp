@@ -3,12 +3,46 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import Stripe from "stripe";
-// Environment variables for Stripe configuration
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY;
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// Parse command line arguments
+function parseArgs() {
+    const args = process.argv.slice(2);
+    const config = {};
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (arg.startsWith('--api-key=')) {
+            config.apiKey = arg.split('=')[1];
+        }
+        else if (arg === '--api-key' && i + 1 < args.length) {
+            config.apiKey = args[++i];
+        }
+        else if (arg.startsWith('--publishable-key=')) {
+            config.publishableKey = arg.split('=')[1];
+        }
+        else if (arg === '--publishable-key' && i + 1 < args.length) {
+            config.publishableKey = args[++i];
+        }
+        else if (arg.startsWith('--webhook-secret=')) {
+            config.webhookSecret = arg.split('=')[1];
+        }
+        else if (arg === '--webhook-secret' && i + 1 < args.length) {
+            config.webhookSecret = args[++i];
+        }
+        else if (arg.startsWith('--tools=')) {
+            config.tools = arg.split('=')[1];
+        }
+        else if (arg === '--tools' && i + 1 < args.length) {
+            config.tools = args[++i];
+        }
+    }
+    return config;
+}
+const cliArgs = parseArgs();
+// Get Stripe configuration from CLI args or environment variables
+const STRIPE_SECRET_KEY = cliArgs.apiKey || process.env.STRIPE_SECRET_KEY;
+const STRIPE_PUBLISHABLE_KEY = cliArgs.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY;
+const STRIPE_WEBHOOK_SECRET = cliArgs.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET;
 if (!STRIPE_SECRET_KEY) {
-    console.error("STRIPE_SECRET_KEY environment variable is required");
+    console.error("Stripe API key is required. Provide it via --api-key argument or STRIPE_SECRET_KEY environment variable");
     process.exit(1);
 }
 // Initialize Stripe client

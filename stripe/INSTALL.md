@@ -15,7 +15,7 @@ This guide shows you how to install and configure the Stripe MCP Server in vario
 This is the easiest method for most users:
 
 ```bash
-npx -y github:ShadowWalker2014/mcp stripe/dist/index.js
+npx -y github:ShadowWalker2014/mcp mcp-stripe --api-key=sk_test_your_key_here
 ```
 
 ### Method 2: Clone and Build Locally
@@ -55,14 +55,32 @@ Add this to your Claude Desktop configuration file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-**Configuration:**
+**Configuration (Method 1 - Command Arguments):**
 
 ```json
 {
   "mcpServers": {
     "stripe": {
       "command": "npx",
-      "args": ["-y", "github:ShadowWalker2014/mcp", "stripe/dist/index.js"],
+      "args": [
+        "-y",
+        "github:ShadowWalker2014/mcp",
+        "mcp-stripe",
+        "--api-key=sk_test_your_stripe_key_here"
+      ]
+    }
+  }
+}
+```
+
+**Configuration (Method 2 - Environment Variables):**
+
+```json
+{
+  "mcpServers": {
+    "stripe": {
+      "command": "npx",
+      "args": ["-y", "github:ShadowWalker2014/mcp", "mcp-stripe"],
       "env": {
         "STRIPE_SECRET_KEY": "sk_test_your_stripe_key_here"
       }
@@ -140,6 +158,56 @@ DEBUG=stripe-mcp-server STRIPE_SECRET_KEY=sk_test_your_key_here npx github:Shado
 - **Use test keys** during development
 - **Restrict API key permissions** in your Stripe dashboard
 - **Use webhook secrets** to verify webhook authenticity
+
+## Getting the @ Package Format
+
+To get the `@organization/package` format like `@stripe/mcp`, you need to:
+
+### Option 1: Publish to NPM (Recommended)
+1. **Create an NPM organization** (e.g., `@shadowwalker2014`)
+2. **Publish the package** to NPM:
+   ```bash
+   cd stripe
+   npm publish --access public
+   ```
+3. **Users can then install** with:
+   ```json
+   {
+     "mcpServers": {
+       "stripe": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "@shadowwalker2014/stripe-mcp-server@latest",
+           "--api-key=sk_test_your_key"
+         ]
+       }
+     }
+   }
+   ```
+
+### Option 2: Use GitHub Packages
+1. **Configure package.json** with your organization scope
+2. **Publish to GitHub Packages**
+3. **Users install** with GitHub registry
+
+### Current GitHub Installation (No @ needed)
+Our current approach works great and is actually simpler:
+```json
+{
+  "mcpServers": {
+    "stripe": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "github:ShadowWalker2014/mcp",
+        "mcp-stripe",
+        "--api-key=sk_test_your_key"
+      ]
+    }
+  }
+}
+```
 
 ## Getting Help
 
