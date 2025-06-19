@@ -111,8 +111,8 @@ Add to your Claude Desktop config file:
 {
   "mcpServers": {
     "stripe": {
-      "command": "node",
-      "args": ["https://github.com/ShadowWalker2014/mcp/blob/main/stripe/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "github:ShadowWalker2014/mcp", "stripe/dist/index.js"],
       "env": {
         "STRIPE_SECRET_KEY": "sk_test_your_key_here"
       }
@@ -121,8 +121,34 @@ Add to your Claude Desktop config file:
 }
 ```
 
-#### Direct Node.js Usage
+#### Alternative: Direct GitHub Installation
+If you want to use a specific commit or branch:
+
+```json
+{
+  "mcpServers": {
+    "stripe": {
+      "command": "npx",
+      "args": ["-y", "github:ShadowWalker2014/mcp#main", "stripe/dist/index.js"],
+      "env": {
+        "STRIPE_SECRET_KEY": "sk_test_your_key_here"
+      }
+    }
+  }
+}
+```
+
+#### Local Development Usage
 ```bash
+# Clone the repository
+git clone https://github.com/ShadowWalker2014/mcp.git
+  cd mcp/stripe
+
+# Install dependencies and build
+npm install
+npm run build
+
+# Run locally
 STRIPE_SECRET_KEY=sk_test_your_key_here node dist/index.js
 ```
 
