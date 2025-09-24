@@ -12,8 +12,8 @@ COPY package.json ./
 COPY stripe/package.json ./stripe/
 COPY stripe/package-lock.json ./stripe/
 
-# Install dependencies
-RUN cd stripe && npm ci --only=production
+# Install dependencies (including dev dependencies for build)
+RUN cd stripe && npm ci
 
 # Copy source code
 COPY stripe/src ./stripe/src
@@ -21,6 +21,9 @@ COPY stripe/tsconfig.json ./stripe/
 
 # Build TypeScript
 RUN cd stripe && npm run build
+
+# Remove dev dependencies to reduce image size
+RUN cd stripe && npm prune --production
 
 # Expose port
 EXPOSE 3000
