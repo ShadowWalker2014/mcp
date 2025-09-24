@@ -1,8 +1,7 @@
 # Use Node 22 as base image
 FROM node:22-alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# No need for curl anymore
 
 # Set working directory
 WORKDIR /app
@@ -32,9 +31,7 @@ EXPOSE 8080
 ENV TRANSPORT_TYPE=http
 ENV PORT=8080
 
-# Health check - use 0.0.0.0 for container networking and PORT env var
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://0.0.0.0:$PORT/health || exit 1
+# No health check - let Railway handle it
 
 # Start the server
 CMD ["node", "stripe/dist/index.js"]
