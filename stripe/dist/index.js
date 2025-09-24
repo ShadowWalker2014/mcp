@@ -58,7 +58,7 @@ const STRIPE_SECRET_KEY = cliArgs.apiKey || process.env.STRIPE_SECRET_KEY;
 const STRIPE_PUBLISHABLE_KEY = cliArgs.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY;
 const STRIPE_WEBHOOK_SECRET = cliArgs.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET;
 const TRANSPORT_TYPE = cliArgs.transport || process.env.TRANSPORT_TYPE || 'stdio';
-const PORT = cliArgs.port || parseInt(process.env.PORT || '3000', 10);
+const PORT = cliArgs.port || parseInt(process.env.PORT || '8080', 10);
 if (!STRIPE_SECRET_KEY) {
     console.error("Stripe API key is required. Provide it via --api-key argument or STRIPE_SECRET_KEY environment variable");
     process.exit(1);

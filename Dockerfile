@@ -25,16 +25,16 @@ RUN cd stripe && npm run build
 # Remove dev dependencies to reduce image size
 RUN cd stripe && npm prune --production
 
-# Expose port
-EXPOSE 3000
+# Expose port (Railway typically uses 8080)
+EXPOSE 8080
 
 # Set environment variables for HTTP transport
 ENV TRANSPORT_TYPE=http
-ENV PORT=3000
+ENV PORT=8080
 
-# Health check - use 0.0.0.0 for container networking
+# Health check - use 0.0.0.0 for container networking and PORT env var
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f http://0.0.0.0:3000/health || exit 1
+  CMD curl -f http://0.0.0.0:$PORT/health || exit 1
 
 # Start the server
 CMD ["node", "stripe/dist/index.js"]

@@ -44,7 +44,7 @@ Choose your preferred platform:
    ```
    STRIPE_SECRET_KEY=sk_live_your_live_key
    TRANSPORT_TYPE=http
-   PORT=3000
+   PORT=8080
    ```
 4. Deploy automatically with included `Dockerfile` and `railway.json`
 
@@ -71,7 +71,7 @@ Works on any platform supporting Docker:
 - `STRIPE_PUBLISHABLE_KEY`: Your Stripe publishable key (starts with `pk_`)
 - `STRIPE_WEBHOOK_SECRET`: Your webhook endpoint secret (starts with `whsec_`)
 - `TRANSPORT_TYPE`: `stdio` (default) or `http`
-- `PORT`: Port number for HTTP mode (default: 3000)
+- `PORT`: Port number for HTTP mode (default: 8080)
 
 ## Available Tools
 
