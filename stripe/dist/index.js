@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import Stripe from "stripe";
 // Parse command line arguments
@@ -33,14 +37,28 @@ function parseArgs() {
         else if (arg === '--tools' && i + 1 < args.length) {
             config.tools = args[++i];
         }
+        else if (arg.startsWith('--transport=')) {
+            config.transport = arg.split('=')[1];
+        }
+        else if (arg === '--transport' && i + 1 < args.length) {
+            config.transport = args[++i];
+        }
+        else if (arg.startsWith('--port=')) {
+            config.port = parseInt(arg.split('=')[1], 10);
+        }
+        else if (arg === '--port' && i + 1 < args.length) {
+            config.port = parseInt(args[++i], 10);
+        }
     }
     return config;
 }
 const cliArgs = parseArgs();
-// Get Stripe configuration from CLI args or environment variables
+// Get configuration from CLI args or environment variables
 const STRIPE_SECRET_KEY = cliArgs.apiKey || process.env.STRIPE_SECRET_KEY;
 const STRIPE_PUBLISHABLE_KEY = cliArgs.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY;
 const STRIPE_WEBHOOK_SECRET = cliArgs.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET;
+const TRANSPORT_TYPE = cliArgs.transport || process.env.TRANSPORT_TYPE || 'stdio';
+const PORT = cliArgs.port || parseInt(process.env.PORT || '3000', 10);
 if (!STRIPE_SECRET_KEY) {
     console.error("Stripe API key is required. Provide it via --api-key argument or STRIPE_SECRET_KEY environment variable");
     process.exit(1);
@@ -806,9 +824,216 @@ server.tool("stripe_query", {
 });
 // Start the server
 async function main() {
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("Stripe MCP Server running on stdio");
+    if (TRANSPORT_TYPE === 'http') {
+        // Modern Streamable HTTP transport with backwards compatibility for SSE
+        const { createServer } = await import('http');
+        const { parse } = await import('url');
+        // Store transports for session management
+        const streamableTransports = {};
+        const sseTransports = {};
+        const httpServer = createServer(async (req, res) => {
+            const parsedUrl = parse(req.url || '', true);
+            // Enable CORS for all requests
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+            res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+            if (req.method === 'OPTIONS') {
+                res.writeHead(200);
+                res.end();
+                return;
+            }
+            // Modern Streamable HTTP endpoint
+            if (parsedUrl.pathname === '/mcp') {
+                if (req.method === 'POST') {
+                    // Handle Streamable HTTP requests
+                    const sessionId = req.headers['mcp-session-id'];
+                    let transport;
+                    if (sessionId && streamableTransports[sessionId]) {
+                        // Reuse existing transport
+                        transport = streamableTransports[sessionId];
+                    }
+                    else {
+                        // Parse body to check for initialize request
+                        let body = '';
+                        req.on('data', chunk => body += chunk);
+                        req.on('end', async () => {
+                            try {
+                                const requestBody = JSON.parse(body);
+                                if (!sessionId && isInitializeRequest(requestBody)) {
+                                    // New initialization request
+                                    transport = new StreamableHTTPServerTransport({
+                                        sessionIdGenerator: () => randomUUID(),
+                                        onsessioninitialized: (sessionId) => {
+                                            streamableTransports[sessionId] = transport;
+                                        }
+                                    });
+                                    // Clean up transport when closed
+                                    transport.onclose = () => {
+                                        if (transport.sessionId) {
+                                            delete streamableTransports[transport.sessionId];
+                                        }
+                                    };
+                                    // Connect server to transport
+                                    await server.connect(transport);
+                                    // Handle the request
+                                    await transport.handleRequest(req, res, requestBody);
+                                }
+                                else if (sessionId && streamableTransports[sessionId]) {
+                                    // Use existing transport
+                                    transport = streamableTransports[sessionId];
+                                    await transport.handleRequest(req, res, requestBody);
+                                }
+                                else {
+                                    // Invalid request
+                                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                                    res.end(JSON.stringify({
+                                        jsonrpc: '2.0',
+                                        error: {
+                                            code: -32000,
+                                            message: 'Bad Request: No valid session ID provided',
+                                        },
+                                        id: null,
+                                    }));
+                                }
+                            }
+                            catch (error) {
+                                res.writeHead(400, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({
+                                    jsonrpc: '2.0',
+                                    error: { code: -32700, message: 'Parse error' },
+                                    id: null
+                                }));
+                            }
+                        });
+                        return;
+                    }
+                    // For existing sessions, read body and handle request
+                    let body = '';
+                    req.on('data', chunk => body += chunk);
+                    req.on('end', async () => {
+                        try {
+                            const requestBody = JSON.parse(body);
+                            await transport.handleRequest(req, res, requestBody);
+                        }
+                        catch (error) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({
+                                jsonrpc: '2.0',
+                                error: { code: -32700, message: 'Parse error' },
+                                id: null
+                            }));
+                        }
+                    });
+                }
+                else if (req.method === 'GET') {
+                    // Handle GET requests for SSE notifications (Streamable HTTP)
+                    const sessionId = req.headers['mcp-session-id'];
+                    if (!sessionId || !streamableTransports[sessionId]) {
+                        res.writeHead(400, { 'Content-Type': 'text/plain' });
+                        res.end('Invalid or missing session ID');
+                        return;
+                    }
+                    const transport = streamableTransports[sessionId];
+                    await transport.handleRequest(req, res);
+                }
+                else if (req.method === 'DELETE') {
+                    // Handle session termination
+                    const sessionId = req.headers['mcp-session-id'];
+                    if (!sessionId || !streamableTransports[sessionId]) {
+                        res.writeHead(400, { 'Content-Type': 'text/plain' });
+                        res.end('Invalid or missing session ID');
+                        return;
+                    }
+                    const transport = streamableTransports[sessionId];
+                    await transport.handleRequest(req, res);
+                }
+                // Legacy SSE endpoint for backwards compatibility
+            }
+            else if (parsedUrl.pathname === '/sse' && req.method === 'GET') {
+                const transport = new SSEServerTransport('/messages', res);
+                const sessionId = transport.sessionId;
+                sseTransports[sessionId] = transport;
+                res.on("close", () => {
+                    delete sseTransports[sessionId];
+                });
+                await server.connect(transport);
+            }
+            else if (parsedUrl.pathname === '/messages' && req.method === 'POST') {
+                // Legacy message endpoint for SSE transport
+                const sessionId = parsedUrl.query.sessionId;
+                const transport = sseTransports[sessionId];
+                if (transport) {
+                    let body = '';
+                    req.on('data', chunk => body += chunk);
+                    req.on('end', async () => {
+                        try {
+                            const message = JSON.parse(body);
+                            await transport.handlePostMessage(req, res, message);
+                        }
+                        catch (error) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+                        }
+                    });
+                }
+                else {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'No transport found for sessionId' }));
+                }
+            }
+            else if (parsedUrl.pathname === '/health') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    status: 'healthy',
+                    service: 'stripe-mcp-server',
+                    version: '1.0.0',
+                    transport: 'http',
+                    protocol: 'streamable-http-with-sse-fallback'
+                }));
+            }
+            else if (parsedUrl.pathname === '/') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    name: 'Stripe MCP Server',
+                    version: '1.0.0',
+                    description: 'Model Context Protocol server for Stripe integration',
+                    transport: 'http',
+                    protocol: 'streamable-http-with-sse-fallback',
+                    endpoints: {
+                        mcp: '/mcp (POST/GET/DELETE) - Modern Streamable HTTP',
+                        sse: '/sse (GET) - Legacy SSE stream',
+                        messages: '/messages (POST) - Legacy SSE messages',
+                        health: '/health - Health check'
+                    },
+                    tools: [
+                        'stripe_connect',
+                        'stripe_products',
+                        'stripe_prices',
+                        'stripe_webhooks',
+                        'stripe_portal_config',
+                        'stripe_query'
+                    ]
+                }));
+            }
+            else {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Not found' }));
+            }
+        });
+        httpServer.listen(PORT, () => {
+            console.error(`Stripe MCP Server running on HTTP at port ${PORT}`);
+            console.error(`Health check: http://localhost:${PORT}/health`);
+            console.error(`Modern endpoint: http://localhost:${PORT}/mcp`);
+            console.error(`Legacy SSE: http://localhost:${PORT}/sse`);
+        });
+    }
+    else {
+        // Stdio transport for local usage
+        const transport = new StdioServerTransport();
+        await server.connect(transport);
+        console.error("Stripe MCP Server running on stdio");
+    }
 }
 main().catch((error) => {
     console.error("Failed to start server:", error);

@@ -1,129 +1,20 @@
 # Stripe MCP Server
 
-A Model Context Protocol (MCP) server that provides comprehensive Stripe integration capabilities. This server allows AI assistants to interact with Stripe's API to manage products, prices, webhooks, customer portal configurations, and query various Stripe resources.
+A Model Context Protocol (MCP) server that provides comprehensive Stripe integration for AI assistants. Supports both local (stdio) and remote (HTTPS) deployment.
 
 ## Features
 
-- **Products Management**: Create, list, retrieve, update, and archive Stripe products
-- **Prices Management**: Create, list, retrieve, update, and archive Stripe prices with support for one-time and recurring billing
-- **Webhooks Management**: Create, list, retrieve, update, and delete webhook endpoints
-- **Customer Portal Configuration**: Manage Stripe customer portal settings and features
-- **Advanced Querying**: Query various Stripe resources (events, charges, payment intents, customers, subscriptions, invoices, products, prices) with flexible filtering
-- **Connection Helper**: Assist with Stripe setup and configuration
+- **Products & Prices Management**: Create, list, retrieve, update, and archive Stripe products and prices
+- **Webhooks Management**: Manage webhook endpoints for real-time event notifications
+- **Customer Portal Configuration**: Configure the customer self-service portal
+- **Advanced Querying**: Query Stripe resources with flexible filtering
+- **Dual Transport Support**: Local stdio + Remote HTTPS with modern Streamable HTTP transport
 
-## Command Line Arguments
+## Quick Start
 
-The server supports the following command line arguments:
+### Local Usage (Claude Desktop)
 
-- `--api-key=<key>` or `--api-key <key>` - Your Stripe secret key (required)
-- `--publishable-key=<key>` - Your Stripe publishable key (optional)
-- `--webhook-secret=<secret>` - Your webhook endpoint secret (optional)
-- `--tools=<selection>` - Tool selection (currently supports 'all', future: 'basic', 'advanced')
-
-**Examples:**
-```bash
-# Using command line arguments
-npx github:ShadowWalker2014/mcp mcp-stripe --api-key=sk_test_your_key
-
-# Multiple arguments
-npx github:ShadowWalker2014/mcp mcp-stripe --api-key=sk_test_key --webhook-secret=whsec_secret
-```
-
-## Available Tools
-
-### 1. `stripe_connect`
-Helper tool to guide Stripe connection setup.
-- **Parameters**: `purpose`, `features`
-- **Purpose**: Explains what environment variables are needed for Stripe integration
-
-### 2. `stripe_products`
-Manage Stripe products (your service offerings).
-- **Actions**: `create`, `list`, `retrieve`, `update`, `archive`
-- **Parameters**: `action`, `product_id`, `name`, `description`, `images`, `metadata`, `active`
-
-### 3. `stripe_prices`
-Manage pricing for your products.
-- **Actions**: `create`, `list`, `retrieve`, `update`, `archive`
-- **Parameters**: `action`, `price_id`, `product_id`, `unit_amount`, `currency`, `recurring_interval`, `recurring_interval_count`, `metadata`, `active`
-
-### 4. `stripe_webhooks`
-Manage webhook endpoints for real-time event notifications.
-- **Actions**: `create`, `list`, `retrieve`, `update`, `delete`
-- **Parameters**: `action`, `webhook_id`, `url`, `enabled_events`, `description`, `enabled`
-
-### 5. `stripe_portal_config`
-Configure the customer self-service portal.
-- **Actions**: `create`, `list`, `retrieve`, `update`
-- **Parameters**: Various configuration options for business profile, features, and customer update permissions
-
-### 6. `stripe_query`
-Query and analyze Stripe data with advanced filtering.
-- **Resources**: `events`, `charges`, `payment_intents`, `customers`, `subscriptions`, `invoices`, `products`, `prices`
-- **Parameters**: `resource`, `filters`, `limit`, `expand`
-
-## Installation
-
-1. Clone or download this MCP server
-2. Install dependencies:
-   ```bash
-   cd mcp/stripe
-   npm install
-   ```
-
-3. Build the TypeScript code:
-   ```bash
-   npm run build
-   ```
-
-## Configuration
-
-### Environment Variables
-
-Set the following environment variables:
-
-- **Required**:
-  - `STRIPE_SECRET_KEY`: Your Stripe secret key (starts with `sk_`)
-
-- **Optional**:
-  - `STRIPE_PUBLISHABLE_KEY`: Your Stripe publishable key (starts with `pk_`)
-  - `STRIPE_WEBHOOK_SECRET`: Your webhook endpoint secret (starts with `whsec_`)
-
-### Example Environment Setup
-
-Create a `.env` file in the server directory:
-
-```bash
-STRIPE_SECRET_KEY=sk_test_your_secret_key_here
-STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here  
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
-```
-
-## Usage
-
-### Running the Server
-
-#### Development Mode
-```bash
-npm run dev
-```
-
-#### Production Mode
-```bash
-npm run build
-npm start
-```
-
-#### Watch Mode (for development)
-```bash
-npm run watch
-```
-
-### Using with MCP Clients
-
-The server communicates over stdio, making it compatible with various MCP clients. Here are example configurations:
-
-#### Method 1: Using Command Arguments (Recommended)
-Similar to official Stripe and Supabase MCP servers:
+Add to your Claude Desktop MCP configuration:
 
 ```json
 {
@@ -141,8 +32,99 @@ Similar to official Stripe and Supabase MCP servers:
 }
 ```
 
-#### Method 2: Using Environment Variables
-Traditional approach with environment variables:
+### Remote Deployment
+
+Choose your preferred platform:
+
+#### Railway (Recommended)
+
+1. Fork this repository
+2. Connect to Railway
+3. Set environment variables:
+   ```
+   STRIPE_SECRET_KEY=sk_live_your_live_key
+   TRANSPORT_TYPE=http
+   PORT=3000
+   ```
+4. Deploy automatically with included `Dockerfile` and `railway.json`
+
+#### Vercel (Serverless)
+
+1. Deploy to Vercel
+2. Add environment variable: `STRIPE_SECRET_KEY`
+3. Uses stateless transport - no persistent connections needed
+
+#### Other Platforms
+
+Works on any platform supporting Docker:
+- Google Cloud Run
+- AWS ECS/Fargate
+- DigitalOcean App Platform
+- Heroku
+
+## Environment Variables
+
+### Required
+- `STRIPE_SECRET_KEY`: Your Stripe secret key (starts with `sk_`)
+
+### Optional
+- `STRIPE_PUBLISHABLE_KEY`: Your Stripe publishable key (starts with `pk_`)
+- `STRIPE_WEBHOOK_SECRET`: Your webhook endpoint secret (starts with `whsec_`)
+- `TRANSPORT_TYPE`: `stdio` (default) or `http`
+- `PORT`: Port number for HTTP mode (default: 3000)
+
+## Available Tools
+
+### `stripe_connect`
+Helper tool for Stripe setup guidance.
+- **Parameters**: `purpose`, `features`
+
+### `stripe_products`
+Manage Stripe products.
+- **Actions**: `create`, `list`, `retrieve`, `update`, `archive`
+- **Parameters**: `action`, `product_id`, `name`, `description`, `images`, `metadata`, `active`
+
+### `stripe_prices`
+Manage pricing for products.
+- **Actions**: `create`, `list`, `retrieve`, `update`, `archive`
+- **Parameters**: `action`, `price_id`, `product_id`, `unit_amount`, `currency`, `recurring_interval`, `metadata`, `active`
+
+### `stripe_webhooks`
+Manage webhook endpoints.
+- **Actions**: `create`, `list`, `retrieve`, `update`, `delete`
+- **Parameters**: `action`, `webhook_id`, `url`, `enabled_events`, `description`, `enabled`
+
+### `stripe_portal_config`
+Configure customer portal settings.
+- **Actions**: `create`, `list`, `retrieve`, `update`
+- **Parameters**: Various configuration options for business profile and features
+
+### `stripe_query`
+Query Stripe data with advanced filtering.
+- **Resources**: `events`, `charges`, `payment_intents`, `customers`, `subscriptions`, `invoices`, `products`, `prices`
+- **Parameters**: `resource`, `filters`, `limit`, `expand`
+
+## Client Connection
+
+### Remote HTTPS (Modern)
+
+```typescript
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+
+const client = new Client({
+  name: "stripe-mcp-client",
+  version: "1.0.0"
+});
+
+const transport = new StreamableHTTPClientTransport(
+  new URL("https://your-app.railway.app")  // or vercel.app
+);
+
+await client.connect(transport);
+```
+
+### Local stdio
 
 ```json
 {
@@ -158,162 +140,87 @@ Traditional approach with environment variables:
 }
 ```
 
-#### Method 3: Direct File Execution
-If you want to use a specific commit or branch:
+## Development
 
-```json
-{
-  "mcpServers": {
-    "stripe": {
-      "command": "npx",
-      "args": ["-y", "github:ShadowWalker2014/mcp#main", "stripe/dist/index.js"],
-      "env": {
-        "STRIPE_SECRET_KEY": "sk_test_your_key_here"
-      }
-    }
-  }
-}
-```
+### Local Development
 
-#### Local Development Usage
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/ShadowWalker2014/mcp.git
-  cd mcp/stripe
+cd mcp/stripe
 
-# Install dependencies and build
+# Install dependencies
 npm install
+
+# Build
 npm run build
 
-# Run locally
-STRIPE_SECRET_KEY=sk_test_your_key_here node dist/index.js
+# Run locally (stdio mode)
+STRIPE_SECRET_KEY=sk_test_your_key npm start
+
+# Run locally (HTTP mode)
+STRIPE_SECRET_KEY=sk_test_your_key npm run start:http
 ```
 
-## Example Usage Scenarios
+### Available Scripts
 
-### Setting Up a SaaS Pricing Model
+```bash
+npm run dev          # Development mode (stdio)
+npm run dev:http     # Development mode (HTTP)
+npm run build        # Build TypeScript
+npm run start        # Production (stdio)
+npm run start:http   # Production (HTTP)
+npm run watch        # Watch mode (stdio)
+npm run watch:http   # Watch mode (HTTP)
+```
 
-1. **Create Products**:
-   ```
-   Use stripe_products with action "create" to create:
-   - Basic Plan
-   - Pro Plan  
-   - Enterprise Plan
-   ```
+## Health Check
 
-2. **Create Pricing**:
-   ```
-   Use stripe_prices with action "create" to add:
-   - Monthly and annual pricing for each plan
-   - Different currency options
-   ```
+Once deployed, test your server:
 
-3. **Set Up Webhooks**:
-   ```
-   Use stripe_webhooks with action "create" to listen for:
-   - payment_intent.succeeded
-   - customer.subscription.created
-   - customer.subscription.updated
-   - customer.subscription.deleted
-   ```
+```bash
+# Health check
+curl https://your-app.railway.app/health
 
-4. **Configure Customer Portal**:
-   ```
-   Use stripe_portal_config with action "create" to allow customers to:
-   - Update payment methods
-   - Cancel subscriptions
-   - View invoice history
-   ```
+# Server info
+curl https://your-app.railway.app/
+```
 
-### Analyzing Payment Data
+## Security
 
-Use `stripe_query` to analyze your Stripe data:
+- Never commit API keys to version control
+- Use test keys during development (`sk_test_` and `pk_test_`)
+- Use live keys only in production (`sk_live_` and `pk_live_`)
+- Use webhook secrets to verify webhook authenticity
+- Use restricted API keys when possible
+
+## Example Usage
+
+### Create a SaaS Pricing Model
+
+1. **Create Products**: Use `stripe_products` with action "create"
+2. **Add Pricing**: Use `stripe_prices` with action "create" for monthly/annual pricing
+3. **Set Up Webhooks**: Use `stripe_webhooks` to listen for subscription events
+4. **Configure Portal**: Use `stripe_portal_config` to allow customer self-service
+
+### Analyze Payment Data
 
 ```
-Query recent successful payments:
+Query recent payments:
 - resource: "payment_intents"
 - filters: { status: "succeeded", created: { gte: 1640995200 } }
 
 Query subscription events:
-- resource: "events" 
+- resource: "events"
 - filters: { type: "customer.subscription.created" }
-
-Query high-value customers:
-- resource: "customers"
-- expand: ["subscriptions"]
 ```
 
-## Security Considerations
+## Support
 
-- **API Keys**: Never commit API keys to version control. Use environment variables.
-- **Webhook Secrets**: Use webhook secrets to verify webhook authenticity.
-- **Test vs Live**: Use test keys during development (`sk_test_` and `pk_test_`).
-- **Permissions**: Use restricted API keys when possible, limiting access to only needed resources.
-
-## Error Handling
-
-The server includes comprehensive error handling:
-- Invalid parameters return descriptive error messages
-- Stripe API errors are caught and formatted consistently
-- All errors are logged to stderr for debugging
-
-## Development
-
-### Project Structure
-```
-mcp/stripe/
-├── src/
-│   └── index.ts          # Main server implementation
-├── dist/                 # Compiled JavaScript (after build)
-├── package.json          # Dependencies and scripts
-├── tsconfig.json         # TypeScript configuration
-└── README.md            # This file
-```
-
-### Adding New Tools
-
-To add new Stripe functionality:
-
-1. Add a new `server.tool()` call in `src/index.ts`
-2. Define the tool parameters using Zod schemas
-3. Implement the tool logic with proper error handling
-4. Update this README with the new tool documentation
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"STRIPE_SECRET_KEY environment variable is required"**
-   - Ensure you've set the `STRIPE_SECRET_KEY` environment variable
-   - Check that the key starts with `sk_`
-
-2. **"Invalid API Key"**
-   - Verify your API key is correct and active
-   - Ensure you're using the right key for your environment (test vs live)
-
-3. **Webhook creation fails**
-   - Ensure the webhook URL starts with `https://`
-   - Check that the URL is publicly accessible
-
-4. **Build errors**
-   - Run `npm install` to ensure all dependencies are installed
-   - Check that you're using Node.js 18 or higher
-
-### Debugging
-
-Enable debug logging by setting the environment variable:
-```bash
-DEBUG=stripe-mcp-server npm run dev
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+- **Repository**: https://github.com/ShadowWalker2014/mcp
+- **Issues**: https://github.com/ShadowWalker2014/mcp/issues
+- **Stripe Documentation**: https://stripe.com/docs
 
 ## License
 
-This project is licensed under the MIT License. 
+MIT License

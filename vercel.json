@@ -1,0 +1,20 @@
+{
+  "functions": {
+    "stripe/src/vercel.ts": {
+      "runtime": "@vercel/node@3"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/mcp",
+      "destination": "/stripe/src/vercel.ts"
+    },
+    {
+      "source": "/",
+      "destination": "/stripe/src/vercel.ts"
+    }
+  ],
+  "env": {
+    "STRIPE_SECRET_KEY": "@stripe_secret_key"
+  }
+}
