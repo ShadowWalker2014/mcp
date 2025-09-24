@@ -56,37 +56,51 @@ function parseArgs() {
 const cliArgs = parseArgs();
 
 // Get configuration from CLI args or environment variables
-const STRIPE_SECRET_KEY = cliArgs.apiKey || process.env.STRIPE_SECRET_KEY;
+const FALLBACK_STRIPE_SECRET_KEY = cliArgs.apiKey || process.env.STRIPE_SECRET_KEY;
 const STRIPE_PUBLISHABLE_KEY = cliArgs.publishableKey || process.env.STRIPE_PUBLISHABLE_KEY;
 const STRIPE_WEBHOOK_SECRET = cliArgs.webhookSecret || process.env.STRIPE_WEBHOOK_SECRET;
 const TRANSPORT_TYPE = cliArgs.transport || process.env.TRANSPORT_TYPE || 'stdio';
 const PORT = cliArgs.port || parseInt(process.env.PORT || '8080', 10);
 
-if (!STRIPE_SECRET_KEY) {
+// For stdio mode, require the API key upfront
+if (TRANSPORT_TYPE === 'stdio' && !FALLBACK_STRIPE_SECRET_KEY) {
   console.error("Stripe API key is required. Provide it via --api-key argument or STRIPE_SECRET_KEY environment variable");
   process.exit(1);
 }
 
-// Initialize Stripe client
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: '2025-05-28.basil',
-  typescript: true
-});
-
-// Create MCP server
-const server = new McpServer({
-  name: "stripe-mcp-server",
-  version: "1.0.0"
-});
-
-// Helper function to handle errors consistently
-function handleError(error: unknown): { success: false; error: string } {
-  console.error('Stripe MCP Server Error:', error);
-  return { 
-    success: false, 
-    error: error instanceof Error ? error.message : String(error) 
-  };
+// Create Stripe client factory function
+function createStripeClient(apiKey: string) {
+  return new Stripe(apiKey, {
+    apiVersion: '2025-05-28.basil',
+    typescript: true
+  });
 }
+
+// For stdio mode, create default client
+const defaultStripe = FALLBACK_STRIPE_SECRET_KEY ? createStripeClient(FALLBACK_STRIPE_SECRET_KEY) : null;
+
+// Create MCP server factory function
+function createMcpServer(stripeClient: Stripe) {
+  const server = new McpServer({
+    name: "stripe-mcp-server",
+    version: "1.0.0"
+  });
+
+  // Add all the Stripe tools using the provided client
+  addStripeTools(server, stripeClient);
+  return server;
+}
+
+// Function to add all Stripe tools to a server
+function addStripeTools(server: McpServer, stripe: Stripe) {
+  // Helper function to handle errors consistently
+  function handleError(error: unknown): { success: false; error: string } {
+    console.error('Stripe MCP Server Error:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    };
+  }
 
 // Stripe Connect Tool
 server.tool(
@@ -896,6 +910,8 @@ server.tool(
   }
 );
 
+} // End of addStripeTools function
+
 // Start the server
 async function main() {
   if (TRANSPORT_TYPE === 'http') {
@@ -913,7 +929,7 @@ async function main() {
       // Enable CORS for all requests
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id, X-Stripe-Api-Key, Stripe-Api-Key');
       res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
       
       if (req.method === 'OPTIONS') {
@@ -941,6 +957,30 @@ async function main() {
                 const requestBody = JSON.parse(body);
                 
                 if (!sessionId && isInitializeRequest(requestBody)) {
+                  // Extract Stripe API key from headers
+                  const stripeApiKey = req.headers['x-stripe-api-key'] as string || 
+                                     req.headers['stripe-api-key'] as string ||
+                                     FALLBACK_STRIPE_SECRET_KEY;
+                  
+                  if (!stripeApiKey) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                      jsonrpc: '2.0',
+                      error: {
+                        code: -32000,
+                        message: 'Stripe API key required. Provide via X-Stripe-Api-Key header',
+                      },
+                      id: null,
+                    }));
+                    return;
+                  }
+
+                  // Create Stripe client with user's API key
+                  const stripeClient = createStripeClient(stripeApiKey);
+                  
+                  // Create MCP server with user's Stripe client
+                  const mcpServer = createMcpServer(stripeClient);
+                  
                   // New initialization request
                   transport = new StreamableHTTPServerTransport({
                     sessionIdGenerator: () => randomUUID(),
@@ -957,7 +997,7 @@ async function main() {
                   };
 
                   // Connect server to transport
-                  await server.connect(transport);
+                  await mcpServer.connect(transport);
                   
                   // Handle the request
                   await transport.handleRequest(req, res, requestBody);
@@ -1033,6 +1073,21 @@ async function main() {
         
       // Legacy SSE endpoint for backwards compatibility
       } else if (parsedUrl.pathname === '/sse' && req.method === 'GET') {
+        // Extract Stripe API key from headers
+        const stripeApiKey = req.headers['x-stripe-api-key'] as string || 
+                           req.headers['stripe-api-key'] as string ||
+                           FALLBACK_STRIPE_SECRET_KEY;
+        
+        if (!stripeApiKey) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Stripe API key required. Provide via X-Stripe-Api-Key header' }));
+          return;
+        }
+
+        // Create Stripe client and MCP server for this session
+        const stripeClient = createStripeClient(stripeApiKey);
+        const mcpServer = createMcpServer(stripeClient);
+        
         const transport = new SSEServerTransport('/messages', res);
         const sessionId = transport.sessionId;
         sseTransports[sessionId] = transport;
@@ -1041,7 +1096,7 @@ async function main() {
           delete sseTransports[sessionId];
         });
         
-        await server.connect(transport);
+        await mcpServer.connect(transport);
         
       } else if (parsedUrl.pathname === '/messages' && req.method === 'POST') {
         // Legacy message endpoint for SSE transport
@@ -1114,6 +1169,12 @@ async function main() {
     
   } else {
     // Stdio transport for local usage
+    if (!defaultStripe) {
+      console.error("Stripe API key is required for stdio mode");
+      process.exit(1);
+    }
+    
+    const server = createMcpServer(defaultStripe);
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("Stripe MCP Server running on stdio");

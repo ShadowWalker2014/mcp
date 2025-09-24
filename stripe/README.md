@@ -42,10 +42,11 @@ Choose your preferred platform:
 2. Connect to Railway
 3. Set environment variables:
    ```
-   STRIPE_SECRET_KEY=sk_live_your_live_key
    TRANSPORT_TYPE=http
    PORT=8080
    ```
+   
+   **Note**: No Stripe API key needed! Users provide their own keys via client headers.
 4. Deploy automatically with included `Dockerfile` and `railway.json`
 
 #### Vercel (Serverless)
@@ -118,11 +119,18 @@ const client = new Client({
 });
 
 const transport = new StreamableHTTPClientTransport(
-  new URL("https://your-app.railway.app")  // or vercel.app
+  new URL("https://your-app.railway.app"),  // or vercel.app
+  {
+    headers: {
+      'X-Stripe-Api-Key': 'sk_test_your_stripe_key_here'  // User provides their own key!
+    }
+  }
 );
 
 await client.connect(transport);
 ```
+
+**🔑 Key Feature**: Users provide their own Stripe API keys via headers - the server doesn't store any keys!
 
 ### Local stdio
 
