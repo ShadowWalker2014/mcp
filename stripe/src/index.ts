@@ -1105,11 +1105,11 @@ async function main() {
       }
     });
     
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.error(`Stripe MCP Server running on HTTP at port ${PORT}`);
-      console.error(`Health check: http://localhost:${PORT}/health`);
-      console.error(`Modern endpoint: http://localhost:${PORT}/mcp`);
-      console.error(`Legacy SSE: http://localhost:${PORT}/sse`);
+      console.error(`Health check: http://0.0.0.0:${PORT}/health`);
+      console.error(`Modern endpoint: http://0.0.0.0:${PORT}/mcp`);
+      console.error(`Legacy SSE: http://0.0.0.0:${PORT}/sse`);
     });
     
   } else {
