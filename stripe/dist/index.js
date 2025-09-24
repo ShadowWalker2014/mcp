@@ -61,9 +61,10 @@ const TRANSPORT_TYPE = cliArgs.transport || process.env.TRANSPORT_TYPE || 'stdio
 const PORT = cliArgs.port || parseInt(process.env.PORT || '8080', 10);
 // For stdio mode, require the API key upfront
 if (TRANSPORT_TYPE === 'stdio' && !FALLBACK_STRIPE_SECRET_KEY) {
-    console.error("Stripe API key is required. Provide it via --api-key argument or STRIPE_SECRET_KEY environment variable");
+    console.error("Stripe API key is required for stdio mode. Provide it via --api-key argument or STRIPE_SECRET_KEY environment variable");
     process.exit(1);
 }
+// For HTTP mode, we don't require API key upfront - users provide it per request
 // Create Stripe client factory function
 function createStripeClient(apiKey) {
     return new Stripe(apiKey, {
@@ -984,13 +985,15 @@ async function main() {
                 // Legacy SSE endpoint for backwards compatibility
             }
             else if (parsedUrl.pathname === '/sse' && req.method === 'GET') {
-                // Extract Stripe API key from headers
+                // Extract Stripe API key from headers or use fallback
                 const stripeApiKey = req.headers['x-stripe-api-key'] ||
                     req.headers['stripe-api-key'] ||
+                    process.env.X_STRIPE_API_KEY ||
+                    process.env.STRIPE_API_KEY ||
                     FALLBACK_STRIPE_SECRET_KEY;
                 if (!stripeApiKey) {
                     res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Stripe API key required. Provide via X-Stripe-Api-Key header' }));
+                    res.end(JSON.stringify({ error: 'Stripe API key required. Add to Cursor config: "env": {"X-Stripe-Api-Key": "sk_live_..."}' }));
                     return;
                 }
                 // Create Stripe client and MCP server for this session
