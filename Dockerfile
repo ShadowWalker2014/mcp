@@ -1,6 +1,9 @@
 # Use Node 22 as base image
 FROM node:22-alpine
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 # Set working directory
 WORKDIR /app
 
@@ -18,9 +21,6 @@ COPY stripe/tsconfig.json ./stripe/
 
 # Build TypeScript
 RUN cd stripe && npm run build
-
-# Copy environment file (public variables only)
-COPY .env ./
 
 # Expose port
 EXPOSE 3000
